@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: MIT
 pragma solidity 0.8.4;
 
-import "./IERC20.sol";
-import "./Ownable.sol";
-import "./IUniswapV2Router02.sol";
-import "./SafeMath.sol";
+import "../lib/IERC20.sol";
+import "../lib/Ownable.sol";
+import "../lib/IUniswapV2Router02.sol";
+import "../lib/SafeMath.sol";
 
 contract Sender {
 
@@ -49,7 +49,7 @@ contract XYZToken is IERC20, Ownable {
     uint256 public constant TAX_DENOM = 1000;
 
     // reduced buyer sender, cause Uniswap can't send tokens back to address
-    Sender public sender;
+    Sender public _sender;
 
     // permissions
     struct Permissions {
@@ -73,17 +73,11 @@ contract XYZToken is IERC20, Ownable {
     event SetFeeExemption(address account, bool isFeeExempt);
     event SetAutomatedMarketMaker(address account, bool isMarketMaker);
     event SetFees(uint256 reducedBuyFee, uint256 buyFee, uint256 sellFee, uint256 transferFee);
-    
-    // modifiers
-    modifier onlyOwner(){
-        require(msg.sender == owner, 'Only Owner');
-        _;
-    }
 
-    constructor(address distributor) {
+    constructor() {
         
         // initialize sender
-        sender = new Sender(address(this));
+        _sender = new Sender(address(this));
 
         // set initial starting supply
         _totalSupply = 10**9 * 10**_decimals;
@@ -137,12 +131,12 @@ contract XYZToken is IERC20, Ownable {
     }
 
     function burn(uint256 amount) external returns (bool) {
-        _burn(msg.sender, amount);
+        return _burn(msg.sender, amount);
     }
 
     function burnFrom(address account, uint256 amount) external returns (bool) {
-        _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, 'Insufficient Allowance');
-        _burn(account, amount);
+        _allowances[account][msg.sender] = _allowances[account][msg.sender].sub(amount, 'Insufficient Allowance');
+        return _burn(account, amount);
     }
     
     /** Internal Transfer */
@@ -180,14 +174,15 @@ contract XYZToken is IERC20, Ownable {
 
         // emit transfer
         emit Transfer(sender, recipient, sendAmount);
+        return true;
     }
 
     function withdraw(address token) external onlyOwner {
-        IERC20(token).transfer(owner, IERC20(token).balanceOf(address(this)));
+        IERC20(token).transfer(msg.sender, IERC20(token).balanceOf(address(this)));
     }
 
     function withdrawBNB() external onlyOwner {
-        _sendBNB(owner, address(this).balance);
+        _sendBNB(msg.sender, address(this).balance);
     }
 
     function setTransferFeeRecipient(address recipient) external onlyOwner {
@@ -259,7 +254,7 @@ contract XYZToken is IERC20, Ownable {
         require(msg.value > 100);
 
         // calculate fee for reduced buy
-        uint256 fee = isFeeExempt[msg.sender] ? 0 : msg.value.mul(reducedBuyFee).div(TAX_DENOM);
+        uint256 fee = permissions[msg.sender].isFeeExempt ? 0 : msg.value.mul(reducedBuyFee).div(TAX_DENOM);
 
         // send bnb to buy fee recipient
         if (fee > 0) {
@@ -267,10 +262,10 @@ contract XYZToken is IERC20, Ownable {
         }
 
         // use rest of bnb to buy token for sender
-        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: address(this).balance}(0, path, address(sender), block.timestamp + 300);
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: address(this).balance}(0, path, address(_sender), block.timestamp + 300);
 
         // allocate tokens to sender
-        sender.send(msg.sender);
+        _sender.send(msg.sender);
     }
 
     function getTax(address sender, address recipient, uint256 amount) public view returns (uint256, address) {
@@ -298,7 +293,8 @@ contract XYZToken is IERC20, Ownable {
             amount > 0,
             'Zero Amount'
         );
-        _balances[account] = _balances[sender].sub(amount, 'Balance Underflow');
+        _balances[account] = _balances[account].sub(amount, 'Balance Underflow');
         _totalSupply = _totalSupply.sub(amount, 'Supply Underflow');
+        return true;
     }
 }
