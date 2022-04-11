@@ -221,19 +221,19 @@ contract XYZToken is IERC20, Ownable {
 
     function setFees(uint _reducedBuyFee, uint _buyFee, uint _sellFee, uint _transferFee) external onlyOwner {
         require(
-            buyFee <= TAX_DENOM.div(8),
+            _buyFee <= TAX_DENOM.div(8),
             'Buy Fee Too High'
         );
         require(
-            buyFee <= TAX_DENOM.div(8),
+            _sellFee <= TAX_DENOM.div(8),
             'Sell Fee Too High'
         );
         require(
-            buyFee <= TAX_DENOM.div(8),
+            _transferFee <= TAX_DENOM.div(8),
             'Transfer Fee Too High'
         );
         require(
-            reducedBuyFee <= TAX_DENOM.div(8),
+            _reducedBuyFee <= TAX_DENOM.div(8),
             'Reduced Buy Fee Too High'
         );
 
